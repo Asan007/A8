@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>无边界肉鸽（隐形操控·稳定修复）</title>
+  <style>
+    html,body{margin:0;background:#0e0e0e;color:#fff;height:100%;overflow:hidden;font-family:system-ui,Segoe UI,Arial;}
+    #wrap{display:flex;flex-direction:column;height:100%;}
+    .hud{height:64px;background:#111a;backdrop-filter: blur(2px);display:flex;align-items:center;gap:12px;padding:8px 12px;box-sizing:border-box;}
+    .hpbar{height:12px;background:#3a3a3a;border:1px solid #666;border-radius:8px;overflow:hidden;width:30vw;min-width:160px;}
+    .hpbar>i{display:block;height:100%;background:#ff6b6b;width:0;}
+    .expbar{height:10px;background:#3a3a3a;border:1px solid #666;border-radius:8px;overflow:hidden;flex:1;}
+    .expbar>i{display:block;height:100%;background:#4ea3ff;width:0;}
+    #c{flex:1;display:block;margin:0 auto;background:#1b1b1b;image-rendering:pixelated;touch-action:none;}
+    .stats{margin-left:auto;display:flex;gap:14px;color:#bbb;font-size:12px;flex-wrap:wrap;row-gap:4px;}
+    .topbtns{position:fixed;right:10px;top:70px;display:flex;gap:8px;z-index:1200;}
+    .tbtn{padding:8px 12px;border:1px solid #777;border-radius:10px;background:#1f1f1f;user-select:none;}
+    .tbtn:active{transform:scale(0.98);}
+    .float{position:fixed;left:50%;top:12%;transform:translateX(-50%);background:#111; border:1px solid #666; padding:12px; border-radius:12px; display:none; width:92vw; max-width:600px; z-index:1000; pointer-events:auto;}
+    .choices{display:grid;grid-template-columns:1fr;gap:8px;margin-top:8px;}
+    .choice{padding:10px;border:1px solid #666;border-radius:8px;background:#1c1c1c;cursor:pointer;}
+    .choice:active{transform:scale(0.99);}
+    .title{font-weight:700;margin-bottom:4px;}
+    .desc{font-size:12px;color:#bbb;}
+    .shop{position:fixed;left:50%;top:12%;transform:translateX(-50%);background:#121212;border:1px solid #666;box-shadow:0 8px 24px rgba(0,0,0,.4);border-radius:12px;display:none;z-index:1000;width:92vw;max-width:760px;max-height:72vh;overflow:auto;}
+    .shop header{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #333;position:sticky;top:0;background:#121212;}
+    .shop .list{display:grid;grid-template-columns:1fr 90px 90px;gap:6px; padding:10px 12px; align-items:center;}
+    .shop .item{display:contents;}
+    .shop .name{font-weight:700;}
+    .shop .cost{color:#ffd04d;}
+    .shop .buy{padding:6px 10px;border:1px solid #555;border-radius:8px;background:#1f1f1f;user-select:none;}
+    .shop .buy:active{transform:scale(0.98);}
+    .shop .buy:disabled{opacity:.5;}
+    .overlay{position:fixed;left:0;right:0;top:0;bottom:0;background:rgba(0,0,0,0.55);display:none;z-index:950;align-items:center;justify-content:center;font-size:24px;font-weight:700;}
+    .slots{position:fixed;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:12px;background:#111a;padding:8px 12px;border-radius:10px;backdrop-filter: blur(2px);z-index:900;}
+    .sitem{font-size:12px;color:#ddd;}
+    .debug{position:fixed;left:8px;top:72px;font:12px/1.2 monospace;color:#aaa;opacity:.4;pointer-events:none}
+  
+    *{-webkit-tap-highlight-color: rgba(0,0,0,0);} button, .tbtn, .choice{touch-action:manipulation;}
+  </style>
+</head>
+<body>
+  <div id="wrap">
+    <div class="hud">
+      <div>⏱ <span id="time">0:00</span></div>
+      <div class="hpbar"><i id="hpfill"></i></div>
+      <div>💎 LV <span id="lv">1</span></div>
+      <div class="expbar"><i id="exp"></i></div>
+      <div>🪙 <span id="gold">0</span></div>
+      <div class="stats">
+        <div id="statHP">生命</div>
+        <div id="statSPD">移速</div>
+        <div id="statDMG">伤害</div>
+        <div id="statAS">攻速</div>
+        <div id="statRNG">射程</div>
+        <div id="statCC">暴击率</div>
+        <div id="statCM">暴击伤</div>
+      </div>
+    </div>
+    <canvas id="c" width="1280" height="720"></canvas>
+  </div>
+  <div class="topbtns">
+    <div class="tbtn" id="btnShop">商店</div>
+    <div class="tbtn" id="btnPause">暂停</div>
+  </div>
+  <div class="float" id="upgrade">
+    <div style="font-size:18px;margin-bottom:6px;">选择一个升级（点选）</div>
+    <div class="choices" id="choices"></div>
+    <div style="text-align:right;margin-top:8px;"><span class="tbtn" id="btnUpClose">关闭</span></div>
+  </div>
+  <div class="shop" id="shop">
+    <header>
+      <div>🛒 商店</div>
+      <div>金币：<span id="shopGold">0</span>　<span class="tbtn" id="btnShopClose">关闭</span></div>
+    </header>
+    <div class="list" id="shopList"></div>
+  </div>
+  <div class="overlay" id="pauseOverlay">已暂停</div>
+  <div class="slots" id="slots">
+    <div class="sitem" id="sHP">生命 Lv.0</div>
+    <div class="sitem" id="sSPD">移速 Lv.0</div>
+    <div class="sitem" id="sDMG">伤害 Lv.0</div>
+    <div class="sitem" id="sAS">攻速 Lv.0</div>
+    <div class="sitem" id="sRNG">射程 Lv.0</div>
+    <div class="sitem" id="sCC">暴击率 Lv.0</div>
+    <div class="sitem" id="sCM">暴击伤 Lv.0</div>
+  </div>
+  <pre class="debug" id="dbg"></pre>
+  <script src="main.js"></script>
+</body>
+</html>
